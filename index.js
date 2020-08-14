@@ -242,9 +242,9 @@ var handleCloudWatch = function(event, context) {
   var color = "warning";
 
   if (message.NewStateValue === "ALARM") {
-      color = "danger";
+    color = "danger";
   } else if (message.NewStateValue === "OK") {
-      color = "good";
+    color = "good";
   }
 
   var slackMessage = {
@@ -258,12 +258,12 @@ var handleCloudWatch = function(event, context) {
           {
             "title": "Trigger",
             "value": trigger.Statistic + " "
-              + metricName + " "
-              + trigger.ComparisonOperator + " "
-              + trigger.Threshold + " for "
-              + trigger.EvaluationPeriods + " period(s) of "
-              + trigger.Period + " seconds.",
-              "short": false
+                + metricName + " "
+                + trigger.ComparisonOperator + " "
+                + trigger.Threshold + " for "
+                + trigger.EvaluationPeriods + " period(s) of "
+                + trigger.Period + " seconds.",
+            "short": false
           },
           { "title": "Old State", "value": oldState, "short": true },
           { "title": "Current State", "value": newState, "short": true },
@@ -312,43 +312,60 @@ var handleAutoScaling = function(event, context) {
 };
 
 var handleCatchAll = function(event, context) {
+  var record = event.Records[0]
+  var subject = record.Sns.Subject
+  var timestamp = new Date(record.Sns.Timestamp).getTime() / 1000;
+  var slackMessage = {};
+  var color = "warning";
 
-    var record = event.Records[0]
-    var subject = record.Sns.Subject
-    var timestamp = new Date(record.Sns.Timestamp).getTime() / 1000;
+  try {
     var message = JSON.parse(record.Sns.Message)
-    var color = "warning";
 
     if (message.NewStateValue === "ALARM") {
-        color = "danger";
+      color = "danger";
     } else if (message.NewStateValue === "OK") {
-        color = "good";
+      color = "good";
     }
 
     // Add all of the values from the event message to the Slack message description
     var description = ""
     for(key in message) {
 
-        var renderedMessage = typeof message[key] === 'object'
-                            ? JSON.stringify(message[key])
-                            : message[key]
+      var renderedMessage = typeof message[key] === 'object'
+          ? JSON.stringify(message[key])
+          : message[key]
 
-        description = description + "\n" + key + ": " + renderedMessage
+      description = description + "\n" + key + ": " + renderedMessage
     }
 
-    var slackMessage = {
-        text: "*" + subject + "*",
-        attachments: [
-          {
-            "color": color,
-            "fields": [
-              { "title": "Message", "value": record.Sns.Subject, "short": false },
-              { "title": "Description", "value": description, "short": false }
-            ],
-            "ts": timestamp
-          }
-        ]
+    slackMessage = {
+      text: "*" + subject + "*",
+      attachments: [
+        {
+          "color": color,
+          "fields": [
+            { "title": "Message", "value": record.Sns.Subject, "short": false },
+            { "title": "Description", "value": description, "short": false }
+          ],
+          "ts": timestamp
+        }
+      ]
     }
+  } catch (e) {
+    slackMessage = {
+      text: record.Sns.Subject,
+      attachments: [
+        {
+          "color": color,
+          "fields": [
+            { "title": "Message", "value": record.Sns.Subject, "short": false },
+            { "title": "Description", "value": message, "short": false }
+          ],
+          "ts": timestamp
+        }
+      ]
+    };
+  }
 
   return _.merge(slackMessage, baseSlackMessage);
 }
@@ -364,7 +381,7 @@ var processEvent = function(event, context) {
   try {
     eventSnsMessage = JSON.parse(eventSnsMessageRaw);
   }
-  catch (e) {    
+  catch (e) {
   }
 
   if(eventSubscriptionArn.indexOf(config.services.codepipeline.match_text) > -1 || eventSnsSubject.indexOf(config.services.codepipeline.match_text) > -1 || eventSnsMessageRaw.indexOf(config.services.codepipeline.match_text) > -1){
@@ -434,3 +451,4 @@ exports.handler = function(event, context) {
     context.fail('hook url has not been set.');
   }
 };
+
